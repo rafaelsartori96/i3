@@ -473,6 +473,10 @@ void x_shape_window(Con *con) {
     shape_query = xcb_get_extension_data(conn, &xcb_shape_id);
     if (!shape_query->present) return;
 
+    /* we do not draw rounded corners if the containter is not empty */
+    bool draw_corner = !(con->parent &&
+        (con->parent->layout == L_STACKED || con->parent->layout == L_TABBED));
+
     uint16_t w  = con->rect.width;
     uint16_t h  = con->rect.height;
 
@@ -481,27 +485,9 @@ void x_shape_window(Con *con) {
     /* diameter */
     int32_t d = r * 2;
 
-    /* by default, rounded corners on every corner */
-    uint32_t arcs_len = 4;
-    xcb_arc_t* arcs = (xcb_arc_t[]) {
-        { -1, -1, d, d, 0, 360 << 6 },
-        { -1, h-d, d, d, 0, 360 << 6 },
-        { w-d, -1, d, d, 0, 360 << 6 },
-        { w-d, h-d, d, d, 0, 360 << 6 },
-    };;
-
-    /* if it is tabbed, we skip upper corners */
-    if (con->layout == L_TABBED) {
-        arcs_len = 2;
-        arcs = (xcb_arc_t[]) {
-            { -1, h-d, d, d, 0, 360 << 6 },
-            { w-d, h-d, d, d, 0, 360 << 6 },
-        };
-    }
-
     xcb_rectangle_t rects[] = {
-        { r, 0, w-d, h },
-        { 0, r, w, h-d },
+        { draw_corner ? r : 0, 0, draw_corner ? w-d : w, h },
+        { 0, draw_corner ? r : 0, w, draw_corner ? h-d : h },
     };
 
     /* create our shape */
@@ -518,7 +504,15 @@ void x_shape_window(Con *con) {
     /* drawing the shape */
     xcb_poly_fill_rectangle(conn, pid, black, 1, &bounding);
     xcb_poly_fill_rectangle(conn, pid, white, 2, rects);
-    xcb_poly_fill_arc(conn, pid, white, 4, arcs);
+    if (draw_corner) {
+        xcb_arc_t arcs[] = {
+            { -1, -1, d, d, 0, 360 << 6 },
+            { -1, h-d, d, d, 0, 360 << 6 },
+            { w-d, -1, d, d, 0, 360 << 6 },
+            { w-d, h-d, d, d, 0, 360 << 6 },
+        };
+        xcb_poly_fill_arc(conn, pid, white, 4, arcs);
+    }
 
     /* apply shape to the window */
     xcb_shape_mask(conn, XCB_SHAPE_SO_SET, XCB_SHAPE_SK_BOUNDING, con->frame.id, 0, 0, pid);
