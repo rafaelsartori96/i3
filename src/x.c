@@ -474,7 +474,7 @@ void x_shape_window(Con *con) {
     if (!shape_query->present) return;
 
     /* we do not draw rounded corners if the containter is not empty */
-    bool draw_corner = !(con->parent &&
+    bool draw_corner = !con->fullscreen_mode && !(con->parent &&
         (con->parent->layout == L_STACKED || con->parent->layout == L_TABBED));
 
     uint16_t w  = con->rect.width;
